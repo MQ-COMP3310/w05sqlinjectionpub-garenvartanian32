@@ -1,5 +1,6 @@
 package workshop05code;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -8,20 +9,14 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-
-//Import for logging exercise
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 public class SQLiteConnectionManager {
-    //Start code logging exercise
+    // Start code logging exercise
     static {
-        // must set before the Logger
-        // loads logging.properties from the classpath
-        try {// resources\logging.properties
+        try {
             LogManager.getLogManager().readConfiguration(new FileInputStream("resources/logging.properties"));
         } catch (SecurityException | IOException e1) {
             e1.printStackTrace();
@@ -29,8 +24,8 @@ public class SQLiteConnectionManager {
     }
 
     private static final Logger logger = Logger.getLogger(SQLiteConnectionManager.class.getName());
-    //End code logging exercise
-    
+    // End code logging exercise
+
     private String databaseURL = "";
 
     private static final String WORDLE_DROP_TABLE_STRING = "DROP TABLE IF EXISTS wordlist;";
@@ -44,14 +39,14 @@ public class SQLiteConnectionManager {
             + " id integer PRIMARY KEY,\n"
             + " word text NOT NULL\n"
             + ");";
+
     /**
      * Set the database file name in the sqlite project to use
      *
-     * @param fileName the database file name
+     * @param filename the database file name
      */
     public SQLiteConnectionManager(String filename) {
         databaseURL = "jdbc:sqlite:sqlite/" + filename;
-
     }
 
     /**
@@ -60,13 +55,11 @@ public class SQLiteConnectionManager {
      * @param fileName the database file name
      */
     public void createNewDatabase(String fileName) {
-
         try (Connection conn = DriverManager.getConnection(databaseURL)) {
             if (conn != null) {
                 DatabaseMetaData meta = conn.getMetaData();
                 System.out.println("The driver name is " + meta.getDriverName());
                 System.out.println("A new database has been created.");
-
             }
         } catch (SQLException e) {
             System.out.println(e.getMessage());
@@ -74,25 +67,22 @@ public class SQLiteConnectionManager {
     }
 
     /**
-     * Check that the file has been cr3eated
+     * Check that the file has been created
      *
-     * @return true if the file exists in the correct location, false otherwise. If
-     *         no url defined, also false.
+     * @return true if the file exists in the correct location, false otherwise.
+     *         If no url defined, also false.
      */
     public boolean checkIfConnectionDefined() {
         if (databaseURL.equals("")) {
             return false;
         } else {
             try (Connection conn = DriverManager.getConnection(databaseURL)) {
-                if (conn != null) {
-                    return true;
-                }
+                return conn != null;
             } catch (SQLException e) {
                 System.out.println(e.getMessage());
                 return false;
             }
         }
-        return false;
     }
 
     /**
@@ -105,7 +95,8 @@ public class SQLiteConnectionManager {
             return false;
         } else {
             try (Connection conn = DriverManager.getConnection(databaseURL);
-                    Statement stmt = conn.createStatement()) {
+                 Statement stmt = conn.createStatement()) {
+
                 stmt.execute(WORDLE_DROP_TABLE_STRING);
                 stmt.execute(WORDLE_CREATE_STRING);
                 stmt.execute(VALID_WORDS_DROP_TABLE_STRING);
@@ -121,34 +112,37 @@ public class SQLiteConnectionManager {
 
     /**
      * Take an id and a word and store the pair in the valid words
-     * 
+     *
      * @param id   the unique id for the word
      * @param word the word to store
      */
     public void addValidWord(int id, String word) {
-
-        String sql = "INSERT INTO validWords(id,word) VALUES('" + id + "','" + word + "')";
-
+        String sql = "INSERT INTO validWords(id, word) VALUES(?, ?)";
         try (Connection conn = DriverManager.getConnection(databaseURL);
-                PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.executeUpdate();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, id);       // Set id as integer
+            pstmt.setString(2, word);  // Set word as string
+
+            pstmt.executeUpdate();     // Execute the statement
         } catch (SQLException e) {
             System.out.println(e.getMessage());
         }
-
     }
 
     /**
-     * Possible weakness here?
-     * 
+     * Check if a word exists in the database
+     *
      * @param guess the string to check if it is a valid word.
      * @return true if guess exists in the database, false otherwise
      */
     public boolean isValidWord(String guess) {
-        String sql = "SELECT count(id) as total FROM validWords WHERE word like'" + guess + "';";
+        String sql = "SELECT count(id) as total FROM validWords WHERE word like ?;";
 
         try (Connection conn = DriverManager.getConnection(databaseURL);
-                PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, guess);
 
             ResultSet resultRows = stmt.executeQuery();
             if (resultRows.next()) {
@@ -162,6 +156,5 @@ public class SQLiteConnectionManager {
             System.out.println(e.getMessage());
             return false;
         }
-
     }
 }
