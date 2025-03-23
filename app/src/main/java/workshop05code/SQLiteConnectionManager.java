@@ -58,31 +58,33 @@ public class SQLiteConnectionManager {
         try (Connection conn = DriverManager.getConnection(databaseURL)) {
             if (conn != null) {
                 DatabaseMetaData meta = conn.getMetaData();
-                System.out.println("The driver name is " + meta.getDriverName());
-                System.out.println("A new database has been created.");
+                logger.fine("Database created. Driver: " + meta.getDriverName());
             }
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            logger.log(Level.WARNING, "Error creating new database.", e);
         }
     }
 
     /**
      * Check that the file has been created
      *
-     * @return true if the file exists in the correct location, false otherwise.
-     *         If no url defined, also false.
+     * @return true if the file exists in the correct location, false otherwise. If
+     *         no url defined, also false.
      */
     public boolean checkIfConnectionDefined() {
         if (databaseURL.equals("")) {
             return false;
         } else {
             try (Connection conn = DriverManager.getConnection(databaseURL)) {
-                return conn != null;
+                if (conn != null) {
+                    return true;
+                }
             } catch (SQLException e) {
-                System.out.println(e.getMessage());
+                logger.log(Level.WARNING, "Database connection check failed.", e);
                 return false;
             }
         }
+        return false;
     }
 
     /**
@@ -95,8 +97,7 @@ public class SQLiteConnectionManager {
             return false;
         } else {
             try (Connection conn = DriverManager.getConnection(databaseURL);
-                 Statement stmt = conn.createStatement()) {
-
+                    Statement stmt = conn.createStatement()) {
                 stmt.execute(WORDLE_DROP_TABLE_STRING);
                 stmt.execute(WORDLE_CREATE_STRING);
                 stmt.execute(VALID_WORDS_DROP_TABLE_STRING);
@@ -104,49 +105,41 @@ public class SQLiteConnectionManager {
                 return true;
 
             } catch (SQLException e) {
-                System.out.println(e.getMessage());
+                logger.log(Level.SEVERE, "Failed to create tables.", e);
                 return false;
             }
         }
     }
 
     /**
-     * Take an id and a word and store the pair in the valid words
+     * Take an id and a word and store the pair in the valid words,
+     * only if the word is a 4-letter string made of lowercase letters a-z.
      *
      * @param id   the unique id for the word
      * @param word the word to store
      */
-/**
- * Take an id and a word and store the pair in the valid words,
- * only if the word is a 4-letter string made of lowercase letters a-z.
- *
- * @param id   the unique id for the word
- * @param word the word to store
- */
-public void addValidWord(int id, String word) {
-    // Validate input: must be exactly 4 lowercase letters
-    if (!word.matches("[a-z]{4}")) {
-        System.out.println("Ignored invalid word: '" + word + "'. Must be exactly 4 lowercase letters (a-z).");
-        return; // Skip adding to the database
+    public void addValidWord(int id, String word) {
+        // Validate input: must be exactly 4 lowercase letters
+        if (!word.matches("[a-z]{4}")) {
+            logger.severe("Ignored invalid word: '" + word + "'. Must be exactly 4 lowercase letters (a-z).");
+            return; // Skip adding to the database
+        }
+
+        String sql = "INSERT INTO validWords(id, word) VALUES(?, ?)";
+        try (Connection conn = DriverManager.getConnection(databaseURL);
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, id);       // Properly set the id as an integer
+            pstmt.setString(2, word);  // Properly set the word as a string
+            pstmt.executeUpdate();     // Now safely execute the statement
+        } catch (SQLException e) {
+            logger.log(Level.WARNING, "Failed to insert valid word into database.", e);
+        }
+
     }
-
-    String sql = "INSERT INTO validWords(id, word) VALUES(?, ?)";
-    try (Connection conn = DriverManager.getConnection(databaseURL);
-         PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-        pstmt.setInt(1, id);
-        pstmt.setString(2, word);
-        pstmt.executeUpdate();
-
-    } catch (SQLException e) {
-        System.out.println(e.getMessage());
-    }
-}
-
 
     /**
-     * Check if a word exists in the database
-     *
+     * Possible weakness here?
+     * 
      * @param guess the string to check if it is a valid word.
      * @return true if guess exists in the database, false otherwise
      */
@@ -154,9 +147,8 @@ public void addValidWord(int id, String word) {
         String sql = "SELECT count(id) as total FROM validWords WHERE word like ?;";
 
         try (Connection conn = DriverManager.getConnection(databaseURL);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, guess);
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    stmt.setString(1, guess);
 
             ResultSet resultRows = stmt.executeQuery();
             if (resultRows.next()) {
@@ -167,8 +159,9 @@ public void addValidWord(int id, String word) {
             return false;
 
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            logger.log(Level.WARNING, "Error checking word validity.", e);
             return false;
         }
+
     }
 }
