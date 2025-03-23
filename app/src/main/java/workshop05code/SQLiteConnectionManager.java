@@ -116,19 +116,33 @@ public class SQLiteConnectionManager {
      * @param id   the unique id for the word
      * @param word the word to store
      */
-    public void addValidWord(int id, String word) {
-        String sql = "INSERT INTO validWords(id, word) VALUES(?, ?)";
-        try (Connection conn = DriverManager.getConnection(databaseURL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, id);       // Set id as integer
-            pstmt.setString(2, word);  // Set word as string
-
-            pstmt.executeUpdate();     // Execute the statement
-        } catch (SQLException e) {
-            System.out.println(e.getMessage());
-        }
+/**
+ * Take an id and a word and store the pair in the valid words,
+ * only if the word is a 4-letter string made of lowercase letters a-z.
+ *
+ * @param id   the unique id for the word
+ * @param word the word to store
+ */
+public void addValidWord(int id, String word) {
+    // Validate input: must be exactly 4 lowercase letters
+    if (!word.matches("[a-z]{4}")) {
+        System.out.println("Ignored invalid word: '" + word + "'. Must be exactly 4 lowercase letters (a-z).");
+        return; // Skip adding to the database
     }
+
+    String sql = "INSERT INTO validWords(id, word) VALUES(?, ?)";
+    try (Connection conn = DriverManager.getConnection(databaseURL);
+         PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+        pstmt.setInt(1, id);
+        pstmt.setString(2, word);
+        pstmt.executeUpdate();
+
+    } catch (SQLException e) {
+        System.out.println(e.getMessage());
+    }
+}
+
 
     /**
      * Check if a word exists in the database
